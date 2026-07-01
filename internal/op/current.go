@@ -31,8 +31,10 @@ func newCurrent(roomID string, c *model.Current) *current {
 }
 
 func (c *current) Current() model.Current {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	// 用写锁而非读锁:UpdateStatus() 会修改 CurrentTime/LastUpdate,
+	// 多个 goroutine 并发读时会产生数据竞争,导致外推值偶发错误。
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.current.UpdateStatus()
 
@@ -60,8 +62,10 @@ func (c *current) SetMovie(movie model.CurrentMovie, play bool) {
 }
 
 func (c *current) Status() model.Status {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	// 用写锁而非读锁:UpdateStatus() 会修改 CurrentTime/LastUpdate,
+	// 多个 goroutine 并发读时会产生数据竞争,导致外推值偶发错误。
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	c.current.UpdateStatus()
 

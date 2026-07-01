@@ -119,13 +119,13 @@ func (c *Client) NextReader() (int, io.Reader, error) {
 	return c.conn.NextReader()
 }
 
-func (c *Client) SetStatus(playing bool, seek, rate, timeDiff float64) error {
+func (c *Client) SetStatus(playing bool, seek, rate, timeDiff float64) (*model.Status, error) {
 	status, err := c.u.SetRoomCurrentStatus(c.r, playing, seek, rate, timeDiff)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.Broadcast(&pb.Message{
+	return status, c.Broadcast(&pb.Message{
 		Type: pb.MessageType_STATUS,
 		Sender: &pb.Sender{
 			Username: c.User().Username,

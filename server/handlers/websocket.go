@@ -411,7 +411,7 @@ func handleStatusMessage(cli *op.Client, msg *pb.Message, timeDiff float64) erro
 		return sendErrorMessage(cli, "playback status is nil")
 	}
 
-	err := cli.SetStatus(
+	status, err := cli.SetStatus(
 		playbackStatus.GetIsPlaying(),
 		playbackStatus.GetCurrentTime(),
 		playbackStatus.GetPlaybackRate(),
@@ -419,6 +419,22 @@ func handleStatusMessage(cli *op.Client, msg *pb.Message, timeDiff float64) erro
 	)
 	if err != nil {
 		return sendErrorMessage(cli, fmt.Sprintf("set status error: %v", err))
+	}
+
+	// 单调前进保护触发:服务器保留了外推值(未采用客户端报的落后进度)。
+	// 给发送者单独回发 SYNC,将其 seek 到服务器正确位置,避免其停留在落后位置。
+	if status.CurrentTime > playbackStatus.GetCurrentTime()+model.SeekBackwardTolerance {
+		return cli.Send(&pb.Message{
+			Type:      pb.MessageType_SYNC,
+			Timestamp: time.Now().UnixMilli(),
+			Payload: &pb.Message_PlaybackStatus{
+				PlaybackStatus: &pb.Status{
+					IsPlaying:    status.IsPlaying,
+					CurrentTime:  status.CurrentTime,
+					PlaybackRate: status.PlaybackRate,
+				},
+			},
+		})
 	}
 
 	return nil
